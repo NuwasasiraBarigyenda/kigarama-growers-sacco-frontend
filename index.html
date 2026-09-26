@@ -36,6 +36,11 @@
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
 <script>
+        clearAlert(alertBox);
+    btn.disabled = true; btn.textContent = 'Logging in…';
+
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const alertBox = document.getElementById('alertBox');
@@ -44,12 +49,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     // Add your alert clearing logic here, or leave it empty for now
     console.log("Alert cleared");
 }
-    clearAlert(alertBox);
-    btn.disabled = true; btn.textContent = 'Logging in…';
-
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-
     try {
         const user = await apiRequest('/auth/login', { method: 'POST', body: { username, password } });
         window.location.href = dashboardForRole(user.role);
