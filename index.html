@@ -40,6 +40,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const alertBox = document.getElementById('alertBox');
     const btn = document.getElementById('loginBtn');
+    function clearAlert() {
+    // Add your alert clearing logic here, or leave it empty for now
+    console.log("Alert cleared");
+}
     clearAlert(alertBox);
     btn.disabled = true; btn.textContent = 'Logging in…';
 
