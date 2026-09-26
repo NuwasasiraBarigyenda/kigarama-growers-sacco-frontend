@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Member Directory — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Member Directory</h1>
+            <p>Look up a member's contact details or start a chat with them. Account balances aren't shown here — only the member themselves can view that, PIN-protected.</p>
+        </div>
+
+        <div class="card">
+            <label for="search">Search by name or username</label>
+            <input type="text" id="search" placeholder="Start typing a name…">
+
+            <div class="table-wrap mt">
+                <table>
+                    <thead><tr><th>Name</th><th>Username</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>
+                    <tbody id="memberBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let allMembers = [];
+
+(async () => {
+    const user = await requireAuth(['RECEPTIONIST', 'ADMIN', 'SUPER_ADMIN']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'directory');
+    renderTopbar(user);
+    await loadMembers();
+})();
+
+document.getElementById('search').addEventListener('input', (e) => {
+    renderTable(e.target.value.trim().toLowerCase());
+});
+
+async function loadMembers() {
+    try {
+        allMembers = await apiRequest('/users?role=MEMBER');
+        renderTable('');
+    } catch (e) {
+        document.getElementById('memberBody').innerHTML = `<tr><td colspan="5" class="alert error">${escapeHtml(e.message)}</td></tr>`;
+    }
+}
+
+function renderTable(filterText) {
+    const filtered = allMembers.filter(m =>
+        !filterText || m.fullName.toLowerCase().includes(filterText) || m.username.toLowerCase().includes(filterText)
+    );
+    const tbody = document.getElementById('memberBody');
+    tbody.innerHTML = filtered.length ? filtered.map(m => `
+        <tr>
+            <td>${escapeHtml(m.fullName)}</td>
+            <td>@${escapeHtml(m.username)}</td>
+            <td>${escapeHtml(m.phone || '—')}</td>
+            <td class="muted">${escapeHtml(m.email || '—')}</td>
+            <td><a href="chat.html?with=${m.id}" class="btn small">Message</a></td>
+        </tr>
+    `).join('') : '<tr><td colspan="5" class="muted">No members found.</td></tr>';
+}
+</script>
+</body>
+</html>

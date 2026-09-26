@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Money Approvals — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Mobile Money Approvals</h1>
+            <p>Verify each request against the SACCO's mobile money statement before approving — approval credits the member's savings account immediately.</p>
+        </div>
+
+        <div class="card">
+            <h3>Pending Requests</h3>
+            <div id="actionAlert"></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Member</th><th>Provider</th><th>Phone</th><th>Amount</th><th>Reference</th><th>Actions</th></tr></thead>
+                    <tbody id="pendingBody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Decision History</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Member</th><th>Amount</th><th>Status</th><th>Decided By</th></tr></thead>
+                    <tbody id="historyBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['SUPER_ADMIN', 'ADMIN', 'CASHIER']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'mobilemoney');
+    renderTopbar(user);
+    await loadAll();
+})();
+
+function statusBadge(status) {
+    const map = { PENDING: 'gray', APPROVED: 'green', REJECTED: 'red' };
+    return `<span class="badge ${map[status] || 'gray'}">${status}</span>`;
+}
+
+async function loadAll() {
+    try {
+        const pending = await apiRequest('/mobilemoney/pending');
+        const tbody = document.getElementById('pendingBody');
+        tbody.innerHTML = pending.length ? pending.map(r => `
+            <tr>
+                <td>${fmtDate(r.requestedAt)}</td>
+                <td>${escapeHtml(r.member.fullName)} <span class="muted">(@${escapeHtml(r.member.username)})</span></td>
+                <td>${r.provider === 'MTN_MOMO' ? 'MTN MoMo' : 'Airtel Money'}</td>
+                <td>${escapeHtml(r.phoneNumber)}</td>
+                <td>${money(r.amount)}</td>
+                <td class="muted">${escapeHtml(r.reference || '—')}</td>
+                <td class="flex gap">
+                    <button class="btn small" data-approve="${r.id}">Approve</button>
+                    <button class="btn small danger" data-reject="${r.id}">Reject</button>
+                </td>
+            </tr>
+        `).join('') : '<tr><td colspan="7" class="muted">No pending requests.</td></tr>';
+
+        tbody.querySelectorAll('[data-approve]').forEach(btn => {
+            btn.addEventListener('click', () => decide(btn.dataset.approve, true));
+        });
+        tbody.querySelectorAll('[data-reject]').forEach(btn => {
+            btn.addEventListener('click', () => decide(btn.dataset.reject, false));
+        });
+    } catch (e) { console.error(e); }
+
+    try {
+        const all = await apiRequest('/mobilemoney');
+        const decided = all.filter(r => r.status !== 'PENDING').slice(0, 20);
+        document.getElementById('historyBody').innerHTML = decided.length ? decided.map(r => `
+            <tr>
+                <td>${fmtDate(r.decidedAt || r.requestedAt)}</td>
+                <td>${escapeHtml(r.member.fullName)}</td>
+                <td>${money(r.amount)}</td>
+                <td>${statusBadge(r.status)}</td>
+                <td class="muted">${escapeHtml(r.decidedBy || '—')}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="5" class="muted">No decisions yet.</td></tr>';
+    } catch (e) { console.error(e); }
+}
+
+async function decide(id, approve) {
+    const alertBox = document.getElementById('actionAlert');
+    clearAlert(alertBox);
+    try {
+        if (approve) {
+            await apiRequest(`/mobilemoney/${id}/approve`, { method: 'POST' });
+            showAlert(alertBox, 'Deposit approved and credited to the member\'s account.', 'success');
+        } else {
+            const notes = prompt('Reason for rejecting (optional):') || '';
+            await apiRequest(`/mobilemoney/${id}/reject`, { method: 'POST', body: { notes } });
+            showAlert(alertBox, 'Request rejected.', 'success');
+        }
+        await loadAll();
+    } catch (err) { showAlert(alertBox, err.message); }
+}
+</script>
+</body>
+</html>

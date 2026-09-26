@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super Admin — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Super Admin Dashboard</h1>
+            <p>Full system oversight — coffee &amp; matooke market performance, member savings, and cooperative growth across Kigarama Growers SACCO.</p>
+        </div>
+
+        <div class="stat-grid" id="statGrid">
+            <div class="stat-card"><div class="label">Total Members</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Total Savings Held</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Coffee Logged (kg)</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Matooke Bunches Logged</div><div class="value">—</div></div>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>Live Produce Prices</h3>
+                <div id="priceBox" class="muted">Loading prices…</div>
+            </div>
+            <div class="card">
+                <h3>Staff Overview</h3>
+                <div id="staffBox" class="muted">Loading staff…</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Transactions <a href="transactions.html" class="muted" style="font-size:.8rem;">View all →</a></h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Performed By</th><th>Description</th></tr></thead>
+                    <tbody id="txBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['SUPER_ADMIN']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'overview');
+    renderTopbar(user);
+
+    try {
+        const summary = await apiRequest('/dashboard/summary');
+        const cards = document.querySelectorAll('#statGrid .value');
+        cards[0].textContent = summary.totalMembers;
+        cards[1].textContent = money(summary.totalSavingsHeld);
+        cards[2].textContent = Number(summary.totalCoffeeKg).toLocaleString();
+        cards[3].textContent = summary.totalMatookeBunches;
+    } catch (e) { console.error(e); }
+
+    try {
+        const prices = await apiRequest('/prices/current');
+        document.getElementById('priceBox').innerHTML = `
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;">
+                <span>☕ Coffee (per kg)</span><b>${money(prices.coffeePerKg)}</b>
+            </div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;">
+                <span>🍌 Matooke — Small</span><b>${money(prices.matooke.SMALL)}</b>
+            </div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;">
+                <span>🍌 Matooke — Medium</span><b>${money(prices.matooke.MEDIUM)}</b>
+            </div>
+            <div class="flex between" style="padding:8px 0;">
+                <span>🍌 Matooke — Large</span><b>${money(prices.matooke.LARGE)}</b>
+            </div>
+            <a href="manage-prices.html" class="btn small mt">Update Prices</a>
+        `;
+    } catch (e) { document.getElementById('priceBox').textContent = 'No prices set yet.'; }
+
+    try {
+        const summary = await apiRequest('/dashboard/summary');
+        document.getElementById('staffBox').innerHTML = `
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>Admins</span><b>${summary.totalAdmins}</b></div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>Cashiers</span><b>${summary.totalCashiers}</b></div>
+            <div class="flex between" style="padding:8px 0;"><span>Receptionists</span><b>${summary.totalReceptionists}</b></div>
+            <a href="manage-users.html" class="btn small mt">Manage Accounts</a>
+        `;
+    } catch (e) { console.error(e); }
+
+    try {
+        const txs = (await apiRequest('/account/recent-transactions')).slice(0, 10);
+        const tbody = document.getElementById('txBody');
+        if (txs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="muted">No transactions yet.</td></tr>'; }
+        else {
+            tbody.innerHTML = txs.map(t => `
+                <tr>
+                    <td>${fmtDate(t.timestamp)}</td>
+                    <td><span class="badge green">${t.type.replace(/_/g,' ')}</span></td>
+                    <td>${money(t.amount)}</td>
+                    <td>${escapeHtml(t.performedBy || '—')}</td>
+                    <td class="muted">${escapeHtml(t.description || '')}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) { console.error(e); }
+})();
+</script>
+</body>
+</html>

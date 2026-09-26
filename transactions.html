@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transactions — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Transaction Ledger</h1>
+            <p>Deposits, withdrawals, and produce-sale credits across all member savings accounts.</p>
+        </div>
+
+        <div class="card">
+            <h3>Recent Transactions</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance After</th><th>Performed By</th><th>Description</th></tr></thead>
+                    <tbody id="txBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['SUPER_ADMIN', 'ADMIN', 'CASHIER']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'transactions');
+    renderTopbar(user);
+
+    try {
+        const txs = await apiRequest('/account/recent-transactions');
+        const tbody = document.getElementById('txBody');
+        tbody.innerHTML = txs.length ? txs.map(t => `
+            <tr>
+                <td>${fmtDate(t.timestamp)}</td>
+                <td><span class="badge ${t.type === 'WITHDRAWAL' ? 'red' : 'green'}">${t.type.replace(/_/g,' ')}</span></td>
+                <td>${money(t.amount)}</td>
+                <td>${money(t.balanceAfter)}</td>
+                <td class="muted">${escapeHtml(t.performedBy || '—')}</td>
+                <td class="muted">${escapeHtml(t.description || '')}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6" class="muted">No transactions yet.</td></tr>';
+    } catch (e) { console.error(e); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manage Accounts — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Manage SACCO Accounts</h1>
+            <p>Create and oversee Member, Cashier, Receptionist and Admin accounts for Kigarama Growers SACCO.</p>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>Create New Account</h3>
+                <div id="createAlert"></div>
+                <form id="createForm">
+                    <label for="role">Account Type</label>
+                    <select id="role">
+                        <option value="MEMBER">Member (Farmer)</option>
+                        <option value="CASHIER">Cashier</option>
+                        <option value="RECEPTIONIST">Receptionist</option>
+                        <option value="ADMIN" id="adminOption">Admin</option>
+                    </select>
+
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" required>
+
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required>
+
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required placeholder="used for password reset & notifications">
+
+                    <label for="phone">Phone Number</label>
+                    <input type="text" id="phone" placeholder="e.g. 07XXXXXXXX">
+
+                    <label for="password">Temporary Password</label>
+                    <input type="text" id="password" required minlength="6">
+
+                    <div id="pinField" style="display:none;">
+                        <label for="initialPin">Initial SACCO PIN (4 digits, optional — auto-generated if blank)</label>
+                        <input type="text" id="initialPin" maxlength="6" placeholder="e.g. 1234">
+                    </div>
+
+                    <button type="submit" class="btn full mt">Create Account</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Filter Accounts</h3>
+                <label for="filterRole">Show</label>
+                <select id="filterRole">
+                    <option value="">All Roles</option>
+                    <option value="MEMBER">Members</option>
+                    <option value="CASHIER">Cashiers</option>
+                    <option value="RECEPTIONIST">Receptionists</option>
+                    <option value="ADMIN">Admins</option>
+                    <option value="SUPER_ADMIN">Super Admins</option>
+                </select>
+                <p class="muted mt">Members automatically receive a savings account number and PIN when created here.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>All Accounts</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Phone</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                    <tbody id="userBody"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let me = null;
+
+(async () => {
+    me = await requireAuth(['SUPER_ADMIN', 'ADMIN']);
+    if (!me) return;
+    renderSidebar(document.getElementById('sidebar'), me, 'users');
+    renderTopbar(me);
+
+    if (me.role !== 'SUPER_ADMIN') {
+        document.getElementById('adminOption').remove();
+    }
+
+    await loadUsers();
+})();
+
+document.getElementById('role').addEventListener('change', (e) => {
+    document.getElementById('pinField').style.display = e.target.value === 'MEMBER' ? 'block' : 'none';
+});
+
+document.getElementById('filterRole').addEventListener('change', loadUsers);
+
+async function loadUsers() {
+    const tbody = document.getElementById('userBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">Loading…</td></tr>';
+    const role = document.getElementById('filterRole').value;
+    try {
+        const users = await apiRequest('/users' + (role ? '?role=' + role : ''));
+        if (users.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="muted">No accounts found.</td></tr>'; return; }
+        tbody.innerHTML = users.map(u => `
+            <tr>
+                <td>${escapeHtml(u.fullName)}</td>
+                <td>@${escapeHtml(u.username)}</td>
+                <td class="muted">${escapeHtml(u.email || '—')}</td>
+                <td><span class="badge green">${roleLabel(u.role)}</span></td>
+                <td>${escapeHtml(u.phone || '—')}</td>
+                <td>${u.active ? '<span class="badge green">Active</span>' : '<span class="badge red">Disabled</span>'}</td>
+                <td class="muted">${fmtDate(u.createdAt)}</td>
+                <td>
+                    ${u.role !== 'SUPER_ADMIN' ? `<button class="btn small ${u.active ? 'danger' : ''}" data-id="${u.id}" data-active="${!u.active}">${u.active ? 'Disable' : 'Enable'}</button>` : ''}
+                </td>
+            </tr>
+        `).join('');
+
+        tbody.querySelectorAll('button[data-id]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    await apiRequest(`/users/${btn.dataset.id}/status?active=${btn.dataset.active}`, { method: 'PUT' });
+                    await loadUsers();
+                } catch (e) { alert(e.message); }
+            });
+        });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="8" class="alert error">${escapeHtml(e.message)}</td></tr>`;
+    }
+}
+
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('createAlert');
+    clearAlert(alertBox);
+
+    const body = {
+        role: document.getElementById('role').value,
+        fullName: document.getElementById('fullName').value.trim(),
+        username: document.getElementById('username').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        password: document.getElementById('password').value,
+        initialPin: document.getElementById('initialPin').value.trim(),
+    };
+
+    try {
+        const created = await apiRequest('/users', { method: 'POST', body });
+        let message = `Account created for ${escapeHtml(created.fullName)} (@${escapeHtml(created.username)}). A welcome email with their login details was sent to ${escapeHtml(created.email)}.`;
+        if (created.generatedPin) {
+            message += ` <br><strong>Their SACCO PIN is: ${escapeHtml(created.generatedPin)}</strong> — make a note of this now in case the email doesn't arrive; it will not be shown again.`;
+        }
+        alertBox.innerHTML = `<div class="alert success">${message}</div>`;
+        document.getElementById('createForm').reset();
+        document.getElementById('pinField').style.display = 'none';
+        await loadUsers();
+    } catch (err) {
+        showAlert(alertBox, err.message);
+    }
+});
+</script>
+</body>
+</html>

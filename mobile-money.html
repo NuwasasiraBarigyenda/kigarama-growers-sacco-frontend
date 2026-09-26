@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Money Deposit — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Mobile Money Deposit</h1>
+            <p>Send money to the SACCO via MTN Mobile Money or Airtel Money, then submit the details below. A cashier will verify and credit your savings account.</p>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>Submit a Deposit</h3>
+                <div id="submitAlert"></div>
+                <form id="mmForm">
+                    <label for="provider">Provider</label>
+                    <select id="provider">
+                        <option value="MTN_MOMO">MTN Mobile Money</option>
+                        <option value="AIRTEL_MONEY">Airtel Money</option>
+                    </select>
+
+                    <label for="phoneNumber">Mobile Money Phone Number</label>
+                    <input type="text" id="phoneNumber" placeholder="07XXXXXXXX" required>
+
+                    <label for="amount">Amount (UGX)</label>
+                    <input type="number" id="amount" min="1" step="0.01" required>
+
+                    <label for="reference">Transaction Reference / Confirmation Code</label>
+                    <input type="text" id="reference" placeholder="e.g. MP240923.1234.A56789">
+
+                    <button type="submit" class="btn full mt">Submit Deposit Request</button>
+                </form>
+                <p class="muted mt" style="font-size:.8rem;">
+                    Your request will show as <b>Pending</b> until a cashier verifies the transaction
+                    against the SACCO's mobile money statement and approves it.
+                </p>
+            </div>
+
+            <div class="card">
+                <h3>How it works</h3>
+                <ol class="muted" style="padding-left:18px;line-height:1.8;">
+                    <li>Send money via your MTN or Airtel mobile money menu to the SACCO's mobile money number (ask the front desk if you don't have it).</li>
+                    <li>Copy the confirmation code from the SMS you receive.</li>
+                    <li>Fill in the form and submit it here.</li>
+                    <li>A cashier verifies it and approves — your balance updates automatically.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>My Deposit Requests</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Provider</th><th>Phone</th><th>Amount</th><th>Reference</th><th>Status</th></tr></thead>
+                    <tbody id="requestsBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let me = null;
+
+(async () => {
+    me = await requireAuth(['MEMBER']);
+    if (!me) return;
+    renderSidebar(document.getElementById('sidebar'), me, 'mobilemoney');
+    renderTopbar(me);
+    await loadRequests();
+})();
+
+function statusBadge(status) {
+    const map = { PENDING: 'gray', APPROVED: 'green', REJECTED: 'red' };
+    return `<span class="badge ${map[status] || 'gray'}">${status}</span>`;
+}
+
+async function loadRequests() {
+    try {
+        const requests = await apiRequest('/mobilemoney/my');
+        const tbody = document.getElementById('requestsBody');
+        tbody.innerHTML = requests.length ? requests.map(r => `
+            <tr>
+                <td>${fmtDate(r.requestedAt)}</td>
+                <td>${r.provider === 'MTN_MOMO' ? 'MTN MoMo' : 'Airtel Money'}</td>
+                <td>${escapeHtml(r.phoneNumber)}</td>
+                <td>${money(r.amount)}</td>
+                <td class="muted">${escapeHtml(r.reference || '—')}</td>
+                <td>${statusBadge(r.status)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6" class="muted">No deposit requests yet.</td></tr>';
+    } catch (e) { console.error(e); }
+}
+
+document.getElementById('mmForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('submitAlert');
+    clearAlert(alertBox);
+
+    const body = {
+        provider: document.getElementById('provider').value,
+        phoneNumber: document.getElementById('phoneNumber').value.trim(),
+        amount: parseFloat(document.getElementById('amount').value),
+        reference: document.getElementById('reference').value.trim(),
+    };
+
+    try {
+        await apiRequest('/mobilemoney/request', { method: 'POST', body });
+        showAlert(alertBox, 'Deposit request submitted. It will be credited once a cashier verifies it.', 'success');
+        document.getElementById('mmForm').reset();
+        await loadRequests();
+    } catch (err) { showAlert(alertBox, err.message); }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Produce History — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner alt">
+            <h1>My Produce History</h1>
+            <p>Every coffee and matooke delivery you've made to Kigarama Growers SACCO, and what it earned you.</p>
+        </div>
+
+        <div class="card">
+            <h3>☕ Coffee Deliveries</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Kilograms</th><th>Price/Kg</th><th>Total Credited</th></tr></thead>
+                    <tbody id="coffeeBody"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>🍌 Matooke Deliveries</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Size</th><th>Quantity</th><th>Price Each</th><th>Total Credited</th></tr></thead>
+                    <tbody id="matookeBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['MEMBER']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'produce');
+    renderTopbar(user);
+
+    try {
+        const data = await apiRequest('/produce/my-history');
+        document.getElementById('coffeeBody').innerHTML = data.coffee.length ? data.coffee.map(c => `
+            <tr>
+                <td>${fmtDate(c.recordedAt)}</td>
+                <td>${c.kilograms}</td>
+                <td>${money(c.pricePerKgAtSale)}</td>
+                <td>${money(c.totalValue)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="4" class="muted">No coffee deliveries recorded yet.</td></tr>';
+
+        document.getElementById('matookeBody').innerHTML = data.matooke.length ? data.matooke.map(m => `
+            <tr>
+                <td>${fmtDate(m.recordedAt)}</td>
+                <td><span class="badge brown">${m.size}</span></td>
+                <td>${m.quantity}</td>
+                <td>${money(m.pricePerBunchAtSale)}</td>
+                <td>${money(m.totalValue)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="5" class="muted">No matooke deliveries recorded yet.</td></tr>';
+    } catch (e) { console.error(e); }
+})();
+</script>
+</body>
+</html>

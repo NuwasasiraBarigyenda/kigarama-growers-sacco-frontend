@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receptionist Overview — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Front Desk Overview</h1>
+            <p>Everything you need at a glance — today's produce prices, member lookups, and your messages.</p>
+        </div>
+
+        <div class="stat-grid" id="statGrid">
+            <div class="stat-card"><div class="label">Total Members</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Unread Messages</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Coffee Price (per kg)</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Matooke (Medium bunch)</div><div class="value">—</div></div>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>Quick Actions</h3>
+                <p class="muted">Jump straight to what members usually call or visit about.</p>
+                <a href="chat.html" class="btn full">Open Messages</a>
+                <a href="member-directory.html" class="btn secondary full" style="margin-top:10px;">Search Member Directory</a>
+            </div>
+
+            <div class="card">
+                <h3>Today's Produce Prices</h3>
+                <div id="priceBox" class="muted">Loading prices…</div>
+                <p class="muted mt" style="font-size:.8rem;">Handy when a member calls asking what coffee or matooke is fetching today.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Unread Messages</h3>
+            <div id="unreadList" class="muted">Loading…</div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['RECEPTIONIST']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'overview');
+    renderTopbar(user);
+
+    const cards = document.querySelectorAll('#statGrid .value');
+
+    try {
+        const members = await apiRequest('/users?role=MEMBER');
+        cards[0].textContent = members.length;
+    } catch (e) { console.error(e); }
+
+    try {
+        const notif = await apiRequest('/notifications/summary');
+        cards[1].textContent = notif.unreadCount;
+
+        const list = document.getElementById('unreadList');
+        list.innerHTML = notif.previews.length ? notif.previews.map(p => `
+            <div class="flex between" style="padding:10px 0;border-bottom:1px solid #eef1ef;">
+                <div>
+                    <b>${escapeHtml(p.fromName)}</b>
+                    <div class="muted" style="font-size:.85rem;">${escapeHtml((p.message || 'Sent an attachment').slice(0, 80))}</div>
+                </div>
+                <a href="chat.html?with=${p.fromUserId}" class="btn small">Reply</a>
+            </div>
+        `).join('') : '<p class="muted">No unread messages right now.</p>';
+    } catch (e) { console.error(e); }
+
+    try {
+        const prices = await apiRequest('/prices/current');
+        cards[2].textContent = money(prices.coffeePerKg);
+        cards[3].textContent = money(prices.matooke.MEDIUM);
+        document.getElementById('priceBox').innerHTML = `
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>☕ Coffee (per kg)</span><b>${money(prices.coffeePerKg)}</b></div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>🍌 Small bunch</span><b>${money(prices.matooke.SMALL)}</b></div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>🍌 Medium bunch</span><b>${money(prices.matooke.MEDIUM)}</b></div>
+            <div class="flex between" style="padding:8px 0;"><span>🍌 Large bunch</span><b>${money(prices.matooke.LARGE)}</b></div>
+        `;
+    } catch (e) { document.getElementById('priceBox').textContent = 'No prices set yet.'; }
+})();
+</script>
+</body>
+</html>

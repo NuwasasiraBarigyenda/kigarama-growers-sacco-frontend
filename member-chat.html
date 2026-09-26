@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat with Receptionist — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Chat with the Front Desk</h1>
+            <p>Have a question about your savings, produce prices, or membership? Message our receptionist directly. This channel does not connect you to Admin or Cashier accounts.</p>
+        </div>
+
+        <div class="chat-layout">
+            <div class="chat-contacts" id="contactsList">
+                <div class="empty-state">Loading…</div>
+            </div>
+            <div class="chat-main">
+                <div class="chat-header" id="chatHeader">Select the receptionist to start chatting</div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state">No conversation selected.</div>
+                </div>
+                <form class="chat-input-row" id="chatForm" style="display:none;">
+                    <label class="file-btn" title="Attach PDF, Word doc, or image">
+                        📎
+                        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif" style="display:none;">
+                    </label>
+                    <input type="text" id="messageInput" placeholder="Type a message…" autocomplete="off">
+                    <button type="submit" class="btn">Send</button>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let me = null;
+let activeContactId = null;
+let pollTimer = null;
+
+(async () => {
+    me = await requireAuth(['MEMBER']);
+    if (!me) return;
+    renderSidebar(document.getElementById('sidebar'), me, 'chat');
+    renderTopbar(me);
+    await loadContacts();
+})();
+
+async function loadContacts() {
+    const list = document.getElementById('contactsList');
+    try {
+        const contacts = await apiRequest('/chat/contacts');
+        if (contacts.length === 0) { list.innerHTML = '<div class="empty-state">No receptionist available right now.</div>'; return; }
+        list.innerHTML = contacts.map(c => `
+            <div class="chat-contact" data-id="${c.id}" data-name="${escapeHtml(c.fullName)}">
+                <div class="avatar">${initials(c.fullName)}</div>
+                <div>
+                    <div>${escapeHtml(c.fullName)}</div>
+                    <div class="muted" style="font-size:.75rem;">Receptionist</div>
+                </div>
+            </div>
+        `).join('');
+        list.querySelectorAll('.chat-contact').forEach(el => {
+            el.addEventListener('click', () => openConversation(el.dataset.id, el.dataset.name, el));
+        });
+        // Auto-open the first (usually only) receptionist for convenience.
+        if (contacts.length > 0) {
+            const first = list.querySelector('.chat-contact');
+            openConversation(first.dataset.id, first.dataset.name, first);
+        }
+    } catch (e) {
+        list.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function openConversation(id, name, el) {
+    activeContactId = id;
+    document.querySelectorAll('.chat-contact').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    document.getElementById('chatHeader').textContent = name;
+    document.getElementById('chatForm').style.display = 'flex';
+    loadMessages();
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(loadMessages, 5000);
+}
+
+async function loadMessages() {
+    if (!activeContactId) return;
+    try {
+        const messages = await apiRequest('/chat/conversation/' + activeContactId);
+        const box = document.getElementById('chatMessages');
+        box.innerHTML = messages.length ? messages.map(m => renderBubble(m)).join('') : '<div class="empty-state">No messages yet — say hello!</div>';
+        box.scrollTop = box.scrollHeight;
+    } catch (e) { console.error(e); }
+}
+
+function renderBubble(m) {
+    const mine = m.senderId === me.id;
+    let attachment = '';
+    if (m.attachmentUrl) {
+        attachment = `<a class="attachment" href="${m.attachmentUrl}" target="_blank">📎 ${escapeHtml(m.attachmentName || 'Attachment')}</a>`;
+    }
+    return `
+        <div class="chat-bubble ${mine ? 'mine' : 'theirs'}">
+            ${m.message ? escapeHtml(m.message) : ''}
+            ${attachment}
+            <span class="time">${fmtDate(m.timestamp)}</span>
+        </div>
+    `;
+}
+
+document.getElementById('chatForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeContactId) return;
+    const input = document.getElementById('messageInput');
+    const fileInput = document.getElementById('fileInput');
+    const text = input.value.trim();
+    const file = fileInput.files[0];
+    if (!text && !file) return;
+
+    const form = new FormData();
+    form.append('receiverId', activeContactId);
+    if (text) form.append('message', text);
+    if (file) form.append('file', file);
+
+    try {
+        await apiRequest('/chat/send', { method: 'POST', body: form, isForm: true });
+        input.value = '';
+        fileInput.value = '';
+        await loadMessages();
+    } catch (err) { alert(err.message); }
+});
+</script>
+</body>
+</html>

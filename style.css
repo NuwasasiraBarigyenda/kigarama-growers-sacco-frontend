@@ -1,0 +1,469 @@
+/* =====================================================================
+   Kigarama Growers SACCO — Agrarian Green Theme & Mobile Responsive
+   ===================================================================== */
+
+:root {
+    --deep-forest: #1b4d3e;
+    --sacco-green: #2e8b57;
+    --sage: #a3c1ad;
+    --earth-brown: #6b4226;
+    --earth-tan: #d9c7a3;
+    --cream: #f8f6f1;
+    --white: #ffffff;
+    --ink: #1f2b24;
+    --muted: #5c6b62;
+    --danger: #b3261e;
+    --warning: #b8860b;
+    --success: #2e8b57;
+    --radius: 12px;
+    --shadow: 0 4px 16px rgba(27, 77, 62, 0.12);
+    --shadow-lg: 0 12px 32px rgba(27, 77, 62, 0.18);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+a { color: var(--sacco-green); text-decoration: none; }
+
+h1, h2, h3, h4 { margin: 0 0 .5rem; color: var(--deep-forest); font-weight: 700; }
+
+/* ---------------- Layout Shells & Navigation ---------------- */
+
+.auth-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        linear-gradient(135deg, rgba(27,77,62,.88), rgba(46,139,87,.78)),
+        url('../images/coffee-hands.jpg') center/cover no-repeat;
+    padding: 24px;
+}
+
+.auth-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 420px;
+    padding: 40px 36px;
+}
+
+.auth-card .brand {
+    text-align: center;
+    margin-bottom: 22px;
+}
+
+.auth-card .brand img {
+    width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+    border: 3px solid var(--sage);
+}
+
+.auth-card .brand h1 { font-size: 1.35rem; margin-top: 10px; }
+.auth-card .brand p { color: var(--muted); font-size: .85rem; margin: 0; }
+
+/* Desktop App Layout Container */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--cream);
+}
+
+/* Sidebar Styling (Desktop Default) */
+.sidebar {
+    width: 260px;
+    background: linear-gradient(180deg, var(--deep-forest), #123b2f);
+    color: var(--white);
+    padding: 22px 16px;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 101;
+    transition: transform 0.3s ease-in-out;
+}
+
+.sidebar .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 18px; margin-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+}
+
+.sidebar .brand img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.sidebar .brand span { font-weight: 700; font-size: 1rem; line-height: 1.15; }
+
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+.sidebar nav a, .sidebar nav button.nav-link {
+    color: rgba(255,255,255,.85);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: .92rem;
+    display: flex; align-items: center; gap: 10px;
+    background: none; border: none; text-align: left; cursor: pointer; width: 100%;
+    font-family: inherit;
+    text-decoration: none;
+}
+
+.sidebar nav a:hover, .sidebar nav button.nav-link:hover, .sidebar nav a.active {
+    background: rgba(255,255,255,.12);
+    color: var(--white);
+}
+
+.sidebar .user-box {
+    border-top: 1px solid rgba(255,255,255,.15);
+    padding-top: 14px; margin-top: 14px; font-size: .85rem;
+}
+
+.sidebar .user-box .role-badge {
+    display: inline-block; background: var(--sacco-green);
+    padding: 2px 8px; border-radius: 20px; font-size: .7rem; margin-top: 4px;
+}
+
+/* Main Content Area */
+.main-content {
+    flex: 1;
+    margin-left: 260px; /* Leaves space for fixed sidebar on desktop */
+    padding: 26px 32px;
+    transition: margin-left 0.3s ease-in-out;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Mobile Header Bar (Hidden on Desktop) */
+.mobile-header {
+    display: none;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--deep-forest);
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    margin-right: 1rem;
+    padding: 0;
+    line-height: 1;
+}
+
+.mobile-brand-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* Backdrop overlay when mobile menu is open */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+
+/* =====================================================================
+   Mobile Responsive Breakpoint (Screens smaller than 768px)
+   ===================================================================== */
+@media (max-width: 768px) {
+    .mobile-header {
+        display: flex; /* Show hamburger header on mobile phones */
+    }
+
+    .sidebar {
+        transform: translateX(-100%); /* Hide sidebar off-screen by default */
+    }
+
+    .sidebar.open {
+        transform: translateX(0); /* Slide sidebar in when toggled */
+    }
+
+    .sidebar-backdrop.open {
+        display: block; /* Show dark overlay background */
+    }
+
+    .main-content {
+        margin-left: 0 !important; /* Take full width */
+        padding: 5rem 1rem 1.5rem 1rem !important; /* Push content down below mobile header */
+    }
+}
+
+/* ---------------- UI Components, Cards, & Tables ---------------- */
+
+.page-banner {
+    border-radius: var(--radius);
+    background:
+        linear-gradient(120deg, rgba(27,77,62,.82), rgba(46,139,87,.55)),
+        url('../images/coffee-picking.jpg') center/cover no-repeat;
+    color: var(--white);
+    padding: 28px 30px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+}
+
+/* Alternate banner (produce-focused pages) — same treatment, different photo for variety. */
+.page-banner.alt {
+    background:
+        linear-gradient(120deg, rgba(27,77,62,.82), rgba(46,139,87,.55)),
+        url('../images/coffee-plant.jpg') center/cover no-repeat;
+}
+
+.page-banner h1 { color: var(--white); font-size: 1.5rem; }
+.page-banner p { margin: 0; opacity: .92; max-width: 640px; }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--sacco-green);
+}
+
+.stat-card .label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.stat-card .value { font-size: 1.6rem; font-weight: 700; color: var(--deep-forest); margin-top: 4px; }
+
+.card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+}
+
+.card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 900px) { .card-row { grid-template-columns: 1fr; } }
+
+.card h3 { display: flex; align-items: center; justify-content: space-between; font-size: 1.05rem; }
+
+/* ---------------- Forms & Controls ---------------- */
+
+label { display: block; font-size: .82rem; font-weight: 600; margin: 12px 0 4px; color: var(--deep-forest); }
+label:first-child { margin-top: 0; }
+
+input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d7ddda;
+    font-size: .92rem;
+    font-family: inherit;
+    background: var(--white);
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--sacco-green);
+    box-shadow: 0 0 0 3px rgba(46,139,87,.15);
+}
+
+.btn {
+    display: inline-block;
+    background: var(--sacco-green);
+    color: var(--white);
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: .92rem;
+    cursor: pointer;
+    transition: background .15s ease, transform .1s ease;
+}
+
+.btn:hover { background: var(--deep-forest); }
+.btn:active { transform: scale(.98); }
+.btn.full { width: 100%; margin-top: 16px; }
+.btn.secondary { background: var(--earth-tan); color: var(--earth-brown); }
+.btn.secondary:hover { background: #cbb488; }
+.btn.danger { background: var(--danger); }
+.btn.danger:hover { background: #8f1e18; }
+.btn.small { padding: 6px 12px; font-size: .8rem; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ---------------- Tables ---------------- */
+
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+thead th {
+    text-align: left; color: var(--muted); text-transform: uppercase; font-size: .72rem;
+    letter-spacing: .04em; padding: 10px 8px; border-bottom: 2px solid var(--sage);
+}
+tbody td { padding: 10px 8px; border-bottom: 1px solid #eef1ef; }
+tbody tr:hover { background: #f4f9f6; }
+.table-wrap { width: 100%; overflow-x: auto; }
+
+.badge { padding: 3px 10px; border-radius: 20px; font-size: .72rem; font-weight: 700; }
+.badge.green { background: #e2f2e8; color: var(--sacco-green); }
+.badge.brown { background: #f1e8d9; color: var(--earth-brown); }
+.badge.red { background: #fbe4e2; color: var(--danger); }
+.badge.gray { background: #eceeed; color: var(--muted); }
+
+/* ---------------- Misc Components ---------------- */
+
+.alert { padding: 10px 14px; border-radius: 8px; font-size: .87rem; margin-bottom: 14px; }
+.alert.error { background: #fbe4e2; color: var(--danger); }
+.alert.success { background: #e2f2e8; color: var(--deep-forest); }
+
+.muted { color: var(--muted); font-size: .85rem; }
+.flex { display: flex; align-items: center; gap: 10px; }
+.flex.between { justify-content: space-between; }
+.gap { gap: 12px; }
+.mt { margin-top: 16px; }
+
+.pin-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(27,77,62,.55);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.pin-modal {
+    background: var(--white); border-radius: var(--radius); padding: 28px 26px;
+    width: 100%; max-width: 340px; box-shadow: var(--shadow-lg); text-align: center;
+}
+.pin-modal input { text-align: center; letter-spacing: .4em; font-size: 1.3rem; }
+
+.balance-display { text-align: center; padding: 22px 0; }
+.balance-display .amount { font-size: 2.1rem; font-weight: 800; color: var(--deep-forest); }
+.balance-display .label { color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+
+/* ---------------- Chat ---------------- */
+
+.chat-layout {
+    display: grid; grid-template-columns: 260px 1fr;
+    height: calc(100vh - 200px); min-height: 460px;
+    background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+}
+.chat-contacts { border-right: 1px solid #eef1ef; overflow-y: auto; }
+.chat-contact {
+    padding: 14px 16px; border-bottom: 1px solid #f3f5f3; cursor: pointer; display: flex; gap: 10px; align-items: center;
+}
+.chat-contact:hover, .chat-contact.active { background: #f0f7f2; }
+.chat-contact .avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--sacco-green); color: white;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; flex-shrink:0;
+}
+.chat-main { display: flex; flex-direction: column; }
+.chat-header { padding: 14px 18px; border-bottom: 1px solid #eef1ef; font-weight: 700; color: var(--deep-forest); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; background: #fbfaf7; }
+.chat-bubble { max-width: 65%; padding: 10px 14px; border-radius: 14px; font-size: .88rem; }
+.chat-bubble.mine { align-self: flex-end; background: var(--sacco-green); color: white; border-bottom-right-radius: 4px; }
+.chat-bubble.theirs { align-self: flex-start; background: #eef1ef; color: var(--ink); border-bottom-left-radius: 4px; }
+.chat-bubble .time { display: block; font-size: .68rem; opacity: .7; margin-top: 4px; }
+.chat-bubble a.attachment { display:block; margin-top:4px; text-decoration: underline; font-size:.82rem; }
+.chat-input-row { display: flex; gap: 8px; padding: 14px; border-top: 1px solid #eef1ef; }
+.chat-input-row input[type=text] { flex: 1; }
+.chat-input-row label.file-btn {
+    display: flex; align-items:center; justify-content:center; width: 42px; border-radius: 8px;
+    background: var(--earth-tan); cursor: pointer; margin: 0;
+}
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+
+.top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.top-header .greeting { font-size: .9rem; color: var(--muted); }
+
+.logout-link { color: rgba(255,255,255,.7); font-size: .82rem; margin-top: 8px; display: inline-block; }
+.logout-link:hover { color: white; }
+
+/* ---------------- Topbar (notifications + profile) ---------------- */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.topbar .icon-btn {
+    position: relative;
+    background: var(--white);
+    border: 1px solid #e3e8e5;
+    border-radius: 10px;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+    box-shadow: var(--shadow);
+}
+.topbar .icon-btn .badge-dot {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--danger); color: white;
+    border-radius: 20px; font-size: .65rem; font-weight: 700;
+    min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; line-height: 1;
+}
+
+.notif-dropdown {
+    position: absolute; top: 50px; right: 0;
+    width: 320px; max-width: 88vw;
+    background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    z-index: 80; overflow: hidden; display: none;
+}
+.notif-dropdown.open { display: block; }
+.notif-dropdown .notif-header {
+    padding: 12px 16px; font-weight: 700; color: var(--deep-forest);
+    border-bottom: 1px solid #eef1ef; font-size: .88rem;
+}
+.notif-dropdown .notif-item {
+    padding: 12px 16px; border-bottom: 1px solid #f3f5f3; font-size: .85rem; cursor: pointer;
+}
+.notif-dropdown .notif-item:hover { background: #f4f9f6; }
+.notif-dropdown .notif-item .from { font-weight: 700; color: var(--deep-forest); }
+.notif-dropdown .notif-item .snippet { color: var(--muted); margin-top: 2px; }
+.notif-dropdown .notif-empty { padding: 18px 16px; text-align: center; color: var(--muted); font-size: .85rem; }
+
+.topbar-profile {
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--white); border: 1px solid #e3e8e5; border-radius: 30px;
+    padding: 6px 14px 6px 6px; cursor: pointer; box-shadow: var(--shadow);
+}
+.topbar-profile .avatar-img, .topbar-profile .avatar-fallback {
+    width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+}
+.topbar-profile .avatar-fallback {
+    background: var(--sacco-green); color: white; display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 700;
+}
+.topbar-profile .name { font-size: .85rem; font-weight: 600; color: var(--ink); line-height: 1.1; }
+.topbar-profile .role { font-size: .7rem; color: var(--muted); }
+
+/* Larger avatar used on the profile page */
+.avatar-lg {
+    width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+    border: 4px solid var(--sage);
+}
+.avatar-lg-fallback {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: var(--sacco-green); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; font-weight: 700; border: 4px solid var(--sage);
+}
+
+/* ---------------- Mobile responsiveness for chat ---------------- */
+@media (max-width: 700px) {
+    .chat-layout { grid-template-columns: 1fr; grid-template-rows: 150px 1fr; height: calc(100vh - 260px); }
+    .chat-contacts { border-right: none; border-bottom: 1px solid #eef1ef; }
+    .notif-dropdown { width: 280px; right: -60px; }
+}

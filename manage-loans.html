@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loan Applications — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Loan Applications</h1>
+            <p>Review member loan applications, approve or reject them, and disburse funds once approved.</p>
+        </div>
+
+        <div id="actionAlert"></div>
+
+        <div class="card" id="pendingCard">
+            <h3>Pending Applications</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Applied</th><th>Member</th><th>Amount</th><th>Purpose</th><th>Actions</th></tr></thead>
+                    <tbody id="pendingBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" id="approvedCard">
+            <h3>Approved — Awaiting Disbursement</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Approved</th><th>Member</th><th>Amount</th><th>Purpose</th><th>Decided By</th><th>Actions</th></tr></thead>
+                    <tbody id="approvedBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>All Loans</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Applied</th><th>Member</th><th>Amount</th><th>Status</th><th>Outstanding</th></tr></thead>
+                    <tbody id="allBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let me = null;
+
+(async () => {
+    me = await requireAuth(['SUPER_ADMIN', 'ADMIN', 'CASHIER']);
+    if (!me) return;
+    renderSidebar(document.getElementById('sidebar'), me, 'loans');
+    renderTopbar(me);
+
+    // Cashiers don't decide applications — only disburse already-approved ones.
+    if (me.role === 'CASHIER') {
+        document.getElementById('pendingCard').style.display = 'none';
+    }
+
+    await loadAll();
+})();
+
+function statusBadge(status) {
+    const map = { PENDING: 'gray', APPROVED: 'green', REJECTED: 'red', DISBURSED: 'brown', CLOSED: 'green' };
+    return `<span class="badge ${map[status] || 'gray'}">${status}</span>`;
+}
+
+async function loadAll() {
+    try {
+        const all = await apiRequest('/loans');
+
+        if (me.role !== 'CASHIER') {
+            const pending = all.filter(l => l.status === 'PENDING');
+            document.getElementById('pendingBody').innerHTML = pending.length ? pending.map(l => `
+                <tr>
+                    <td>${fmtDate(l.appliedAt)}</td>
+                    <td>${escapeHtml(l.member.fullName)} <span class="muted">(@${escapeHtml(l.member.username)})</span></td>
+                    <td>${money(l.amountRequested)}</td>
+                    <td class="muted">${escapeHtml(l.purpose)}</td>
+                    <td class="flex gap">
+                        <button class="btn small" data-approve="${l.id}">Approve</button>
+                        <button class="btn small danger" data-reject="${l.id}">Reject</button>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="5" class="muted">No pending applications.</td></tr>';
+
+            document.querySelectorAll('[data-approve]').forEach(btn => btn.addEventListener('click', () => decide(btn.dataset.approve, true)));
+            document.querySelectorAll('[data-reject]').forEach(btn => btn.addEventListener('click', () => decide(btn.dataset.reject, false)));
+        }
+
+        const approved = all.filter(l => l.status === 'APPROVED');
+        document.getElementById('approvedBody').innerHTML = approved.length ? approved.map(l => `
+            <tr>
+                <td>${fmtDate(l.decidedAt)}</td>
+                <td>${escapeHtml(l.member.fullName)} <span class="muted">(@${escapeHtml(l.member.username)})</span></td>
+                <td>${money(l.amountRequested)}</td>
+                <td class="muted">${escapeHtml(l.purpose)}</td>
+                <td class="muted">${escapeHtml(l.decidedBy || '—')}</td>
+                <td><button class="btn small" data-disburse="${l.id}">Disburse Funds</button></td>
+            </tr>
+        `).join('') : '<tr><td colspan="6" class="muted">Nothing awaiting disbursement.</td></tr>';
+
+        document.querySelectorAll('[data-disburse]').forEach(btn => btn.addEventListener('click', () => disburse(btn.dataset.disburse)));
+
+        document.getElementById('allBody').innerHTML = all.length ? all.map(l => `
+            <tr>
+                <td>${fmtDate(l.appliedAt)}</td>
+                <td>${escapeHtml(l.member.fullName)}</td>
+                <td>${money(l.amountRequested)}</td>
+                <td>${statusBadge(l.status)}</td>
+                <td>${l.status === 'DISBURSED' || l.status === 'CLOSED' ? money(l.outstandingBalance) : '—'}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="5" class="muted">No loans yet.</td></tr>';
+    } catch (e) { console.error(e); }
+}
+
+async function decide(id, approve) {
+    const alertBox = document.getElementById('actionAlert');
+    clearAlert(alertBox);
+    try {
+        let notes = '';
+        if (!approve) notes = prompt('Reason for rejecting (optional):') || '';
+        await apiRequest(`/loans/${id}/decision`, { method: 'PUT', body: { approve, notes } });
+        showAlert(alertBox, approve ? 'Loan approved.' : 'Loan rejected.', 'success');
+        await loadAll();
+    } catch (err) { showAlert(alertBox, err.message); }
+}
+
+async function disburse(id) {
+    const alertBox = document.getElementById('actionAlert');
+    clearAlert(alertBox);
+    try {
+        await apiRequest(`/loans/${id}/disburse`, { method: 'POST' });
+        showAlert(alertBox, 'Loan disbursed — funds credited to the member\'s account.', 'success');
+        await loadAll();
+    } catch (err) { showAlert(alertBox, err.message); }
+}
+</script>
+</body>
+</html>

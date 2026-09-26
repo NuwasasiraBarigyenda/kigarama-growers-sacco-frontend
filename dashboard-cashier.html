@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cashier — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Cashier Dashboard</h1>
+            <p>Process member deposits and withdrawals, and log coffee &amp; matooke produce intake straight from the farm gate.</p>
+        </div>
+
+        <div class="stat-grid" id="statGrid">
+            <div class="stat-card"><div class="label">Total Deposits</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Total Withdrawals</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Coffee Logged (kg)</div><div class="value">—</div></div>
+            <div class="stat-card"><div class="label">Matooke Bunches Logged</div><div class="value">—</div></div>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>Quick Actions</h3>
+                <p class="muted">Jump straight into a teller transaction or a farm-gate produce intake log.</p>
+                <a href="cashier-teller.html" class="btn full">Deposit / Withdraw</a>
+                <a href="cashier-produce.html" class="btn secondary full" style="margin-top:10px;">Log Produce Intake</a>
+            </div>
+            <div class="card">
+                <h3>Today's Prices</h3>
+                <div id="priceBox" class="muted">Loading prices…</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Transactions</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Performed By</th><th>Description</th></tr></thead>
+                    <tbody id="txBody"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['CASHIER']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'overview');
+    renderTopbar(user);
+
+    try {
+        const summary = await apiRequest('/dashboard/summary');
+        const cards = document.querySelectorAll('#statGrid .value');
+        cards[0].textContent = money(summary.totalDeposits);
+        cards[1].textContent = money(summary.totalWithdrawals);
+        cards[2].textContent = Number(summary.totalCoffeeKg).toLocaleString();
+        cards[3].textContent = summary.totalMatookeBunches;
+    } catch (e) { console.error(e); }
+
+    try {
+        const prices = await apiRequest('/prices/current');
+        document.getElementById('priceBox').innerHTML = `
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>☕ Coffee (per kg)</span><b>${money(prices.coffeePerKg)}</b></div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>🍌 Small bunch</span><b>${money(prices.matooke.SMALL)}</b></div>
+            <div class="flex between" style="padding:8px 0;border-bottom:1px solid #eef1ef;"><span>🍌 Medium bunch</span><b>${money(prices.matooke.MEDIUM)}</b></div>
+            <div class="flex between" style="padding:8px 0;"><span>🍌 Large bunch</span><b>${money(prices.matooke.LARGE)}</b></div>
+        `;
+    } catch (e) { document.getElementById('priceBox').textContent = 'No prices set yet.'; }
+
+    try {
+        const txs = (await apiRequest('/account/recent-transactions')).slice(0, 10);
+        const tbody = document.getElementById('txBody');
+        if (txs.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="muted">No transactions yet.</td></tr>'; }
+        else {
+            tbody.innerHTML = txs.map(t => `
+                <tr>
+                    <td>${fmtDate(t.timestamp)}</td>
+                    <td><span class="badge green">${t.type.replace(/_/g,' ')}</span></td>
+                    <td>${money(t.amount)}</td>
+                    <td>${escapeHtml(t.performedBy || '—')}</td>
+                    <td class="muted">${escapeHtml(t.description || '')}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) { console.error(e); }
+})();
+</script>
+</body>
+</html>

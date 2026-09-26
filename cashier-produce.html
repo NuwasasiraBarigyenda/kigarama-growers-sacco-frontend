@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produce Intake — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner alt">
+            <h1>Produce Intake Logging</h1>
+            <p>Record coffee (kg) and matooke (bunches by size) brought in by members. Proceeds are credited to their SACCO savings automatically at today's price.</p>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>☕ Log Coffee Intake</h3>
+                <div id="coffeeAlert"></div>
+                <p class="muted">Current price: <b id="coffeePriceTag">—</b> / kg</p>
+                <form id="coffeeForm">
+                    <label for="coffeeMember">Member Username</label>
+                    <input type="text" id="coffeeMember" placeholder="e.g. jbanturaki" required>
+
+                    <label for="coffeeKg">Kilograms</label>
+                    <input type="number" id="coffeeKg" min="0.01" step="0.01" required>
+
+                    <button type="submit" class="btn full mt">Log Coffee &amp; Credit Account</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>🍌 Log Matooke Intake</h3>
+                <div id="matookeAlert"></div>
+                <p class="muted">Priced by bunch size — small, medium or large.</p>
+                <form id="matookeForm">
+                    <label for="matookeMember">Member Username</label>
+                    <input type="text" id="matookeMember" placeholder="e.g. jbanturaki" required>
+
+                    <label for="matookeSize">Bunch Size</label>
+                    <select id="matookeSize">
+                        <option value="SMALL">Small</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="LARGE">Large</option>
+                    </select>
+
+                    <label for="matookeQty">Quantity (number of bunches)</label>
+                    <input type="number" id="matookeQty" min="1" step="1" required>
+
+                    <button type="submit" class="btn full mt">Log Matooke &amp; Credit Account</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Coffee Logs</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Member</th><th>Kg</th><th>Price/Kg</th><th>Total</th><th>Recorded By</th></tr></thead>
+                    <tbody id="coffeeBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Recent Matooke Logs</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Date</th><th>Member</th><th>Size</th><th>Qty</th><th>Price Each</th><th>Total</th><th>Recorded By</th></tr></thead>
+                    <tbody id="matookeBody"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+(async () => {
+    const user = await requireAuth(['CASHIER', 'ADMIN', 'SUPER_ADMIN']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'produce');
+    renderTopbar(user);
+    await loadPrice();
+    await loadLogs();
+})();
+
+async function loadPrice() {
+    try {
+        const prices = await apiRequest('/prices/current');
+        document.getElementById('coffeePriceTag').textContent = money(prices.coffeePerKg);
+    } catch (e) { /* ignore */ }
+}
+
+async function loadLogs() {
+    try {
+        const coffee = (await apiRequest('/produce/coffee/recent')).slice(0, 15);
+        document.getElementById('coffeeBody').innerHTML = coffee.length ? coffee.map(c => `
+            <tr>
+                <td>${fmtDate(c.recordedAt)}</td>
+                <td>${escapeHtml(c.member.fullName)}</td>
+                <td>${c.kilograms}</td>
+                <td>${money(c.pricePerKgAtSale)}</td>
+                <td>${money(c.totalValue)}</td>
+                <td class="muted">${escapeHtml(c.recordedBy || '—')}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6" class="muted">No coffee logs yet.</td></tr>';
+    } catch (e) { console.error(e); }
+
+    try {
+        const matooke = (await apiRequest('/produce/matooke/recent')).slice(0, 15);
+        document.getElementById('matookeBody').innerHTML = matooke.length ? matooke.map(m => `
+            <tr>
+                <td>${fmtDate(m.recordedAt)}</td>
+                <td>${escapeHtml(m.member.fullName)}</td>
+                <td><span class="badge brown">${m.size}</span></td>
+                <td>${m.quantity}</td>
+                <td>${money(m.pricePerBunchAtSale)}</td>
+                <td>${money(m.totalValue)}</td>
+                <td class="muted">${escapeHtml(m.recordedBy || '—')}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7" class="muted">No matooke logs yet.</td></tr>';
+    } catch (e) { console.error(e); }
+}
+
+document.getElementById('coffeeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('coffeeAlert');
+    clearAlert(alertBox);
+    const memberUsername = document.getElementById('coffeeMember').value.trim();
+    const kilograms = parseFloat(document.getElementById('coffeeKg').value);
+    try {
+        const log = await apiRequest('/produce/coffee', { method: 'POST', body: { memberUsername, kilograms } });
+        showAlert(alertBox, `Logged ${kilograms} kg for ${memberUsername}. Credited ${money(log.totalValue)}.`, 'success');
+        document.getElementById('coffeeForm').reset();
+        await loadLogs();
+    } catch (err) { showAlert(alertBox, err.message); }
+});
+
+document.getElementById('matookeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('matookeAlert');
+    clearAlert(alertBox);
+    const memberUsername = document.getElementById('matookeMember').value.trim();
+    const size = document.getElementById('matookeSize').value;
+    const quantity = parseInt(document.getElementById('matookeQty').value, 10);
+    try {
+        const log = await apiRequest('/produce/matooke', { method: 'POST', body: { memberUsername, size, quantity } });
+        showAlert(alertBox, `Logged ${quantity} ${size.toLowerCase()} bunch(es) for ${memberUsername}. Credited ${money(log.totalValue)}.`, 'success');
+        document.getElementById('matookeForm').reset();
+        await loadLogs();
+    } catch (err) { showAlert(alertBox, err.message); }
+});
+</script>
+</body>
+</html>

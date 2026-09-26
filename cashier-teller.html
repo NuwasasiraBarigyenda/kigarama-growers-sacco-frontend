@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deposit / Withdraw — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>Deposit &amp; Withdrawal Teller</h1>
+            <p>Look up a member's SACCO account by account number, then process a cash deposit or withdrawal.</p>
+        </div>
+
+        <div class="card-row">
+            <div class="card">
+                <h3>1. Find Member Account</h3>
+                <div id="lookupAlert"></div>
+                <label for="accNo">Account Number</label>
+                <div class="flex gap">
+                    <input type="text" id="accNo" placeholder="e.g. KGS000123">
+                    <button class="btn" id="lookupBtn" style="white-space:nowrap;">Find</button>
+                </div>
+
+                <div id="foundAccount" style="display:none;" class="mt">
+                    <div class="stat-card" style="border-left-color: var(--earth-brown);">
+                        <div class="label">Member</div>
+                        <div class="value" id="foundName" style="font-size:1.1rem;"></div>
+                        <div class="muted" id="foundUsername"></div>
+                    </div>
+                    <div class="stat-card mt">
+                        <div class="label">Current Balance</div>
+                        <div class="value" id="foundBalance"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>2. Process Transaction</h3>
+                <div id="txAlert"></div>
+                <form id="txForm">
+                    <label for="txType">Transaction Type</label>
+                    <select id="txType">
+                        <option value="deposit">Deposit</option>
+                        <option value="withdraw">Withdrawal</option>
+                    </select>
+
+                    <label for="amount">Amount (UGX)</label>
+                    <input type="number" id="amount" min="1" step="0.01" required>
+
+                    <label for="description">Description (optional)</label>
+                    <textarea id="description" rows="2" placeholder="e.g. Weekly savings deposit"></textarea>
+
+                    <button type="submit" class="btn full mt" id="txBtn" disabled>Select an account first</button>
+                </form>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let currentAccount = null;
+
+(async () => {
+    const user = await requireAuth(['CASHIER', 'ADMIN', 'SUPER_ADMIN']);
+    if (!user) return;
+    renderSidebar(document.getElementById('sidebar'), user, 'deposit');
+    renderTopbar(user);
+})();
+
+document.getElementById('lookupBtn').addEventListener('click', async () => {
+    const alertBox = document.getElementById('lookupAlert');
+    clearAlert(alertBox);
+    const accNo = document.getElementById('accNo').value.trim();
+    if (!accNo) { showAlert(alertBox, 'Enter an account number.'); return; }
+    try {
+        const acc = await apiRequest('/account/lookup/' + encodeURIComponent(accNo));
+        currentAccount = acc;
+        document.getElementById('foundAccount').style.display = 'block';
+        document.getElementById('foundName').textContent = acc.memberName;
+        document.getElementById('foundUsername').textContent = '@' + acc.memberUsername + ' · ' + acc.accountNumber;
+        document.getElementById('foundBalance').textContent = money(acc.balance);
+        document.getElementById('txBtn').disabled = false;
+        document.getElementById('txBtn').textContent = 'Submit Transaction';
+    } catch (e) {
+        showAlert(alertBox, e.message);
+        currentAccount = null;
+        document.getElementById('foundAccount').style.display = 'none';
+        document.getElementById('txBtn').disabled = true;
+    }
+});
+
+document.getElementById('txForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('txAlert');
+    clearAlert(alertBox);
+    if (!currentAccount) { showAlert(alertBox, 'Find a member account first.'); return; }
+
+    const type = document.getElementById('txType').value;
+    const amount = parseFloat(document.getElementById('amount').value);
+    const description = document.getElementById('description').value.trim();
+    const btn = document.getElementById('txBtn');
+    btn.disabled = true; btn.textContent = 'Processing…';
+
+    try {
+        const endpoint = type === 'deposit' ? '/account/deposit' : '/account/withdraw';
+        const tx = await apiRequest(endpoint, {
+            method: 'POST',
+            body: { accountId: currentAccount.id, amount, description }
+        });
+        showAlert(alertBox, `${type === 'deposit' ? 'Deposit' : 'Withdrawal'} of ${money(amount)} successful. New balance: ${money(tx.balanceAfter)}`, 'success');
+        currentAccount.balance = tx.balanceAfter;
+        document.getElementById('foundBalance').textContent = money(tx.balanceAfter);
+        document.getElementById('txForm').reset();
+        document.getElementById('txType').value = type;
+    } catch (e) {
+        showAlert(alertBox, e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Submit Transaction';
+    }
+});
+</script>
+</body>
+</html>

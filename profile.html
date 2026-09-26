@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Profile — Kigarama Growers SACCO</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-layout">
+    <div class="mobile-header">
+        <button class="menu-btn" id="menuBtn" aria-label="Open menu">&#9776;</button>
+        <span class="mobile-brand-title">Kigarama Growers SACCO</span>
+    </div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-banner">
+            <h1>My Profile</h1>
+            <p>Update your details, change your profile picture, and manage your password.</p>
+        </div>
+
+        <div class="card-row">
+            <div class="card" style="text-align:center;">
+                <h3 style="justify-content:center;">Profile Picture</h3>
+                <div id="avatarPreview" style="margin: 10px 0;"></div>
+                <div id="pictureAlert"></div>
+                <label class="btn secondary full" style="cursor:pointer;">
+                    Choose New Photo
+                    <input type="file" id="pictureInput" accept=".jpg,.jpeg,.png,.gif,.webp" style="display:none;">
+                </label>
+                <p class="muted mt" style="font-size:.78rem;">JPG, PNG, GIF or WEBP.</p>
+            </div>
+
+            <div class="card">
+                <h3>Account Details</h3>
+                <div id="detailsAlert"></div>
+                <form id="detailsForm">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" required>
+
+                    <label for="username">Username</label>
+                    <input type="text" id="username" disabled style="background:#f2f2f2;">
+
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="you@example.com">
+
+                    <label for="phone">Phone Number</label>
+                    <input type="text" id="phone" placeholder="07XXXXXXXX">
+
+                    <button type="submit" class="btn full mt">Save Changes</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Change Password</h3>
+            <div id="passwordAlert"></div>
+            <form id="passwordForm">
+                <div class="card-row">
+                    <div>
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" required>
+                    </div>
+                    <div>
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required minlength="6">
+                    </div>
+                </div>
+                <button type="submit" class="btn full mt">Update Password</button>
+            </form>
+        </div>
+    </main>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/topbar.js"></script>
+<script>
+let me = null;
+
+(async () => {
+    me = await requireAuth(); // any authenticated role can view their own profile
+    if (!me) return;
+    renderSidebar(document.getElementById('sidebar'), me, 'profile');
+    renderTopbar(me);
+
+    try {
+        const profile = await apiRequest('/profile/me');
+        document.getElementById('fullName').value = profile.fullName || '';
+        document.getElementById('username').value = profile.username || '';
+        document.getElementById('email').value = profile.email || '';
+        document.getElementById('phone').value = profile.phone || '';
+        renderAvatar(profile);
+    } catch (e) { console.error(e); }
+})();
+
+function renderAvatar(profile) {
+    const box = document.getElementById('avatarPreview');
+    box.innerHTML = profile.profilePicUrl
+        ? `<img class="avatar-lg" src="${profile.profilePicUrl}" alt="">`
+        : `<div class="avatar-lg-fallback" style="margin:0 auto;">${initials(profile.fullName)}</div>`;
+}
+
+document.getElementById('pictureInput').addEventListener('change', async (e) => {
+    const alertBox = document.getElementById('pictureAlert');
+    clearAlert(alertBox);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+        const res = await apiRequest('/profile/picture', { method: 'POST', body: form, isForm: true });
+        renderAvatar({ profilePicUrl: res.profilePicUrl, fullName: me.fullName });
+        showAlert(alertBox, 'Profile picture updated.', 'success');
+        me.profilePicUrl = res.profilePicUrl;
+        renderTopbar(me);
+    } catch (err) {
+        showAlert(alertBox, err.message);
+    }
+});
+
+document.getElementById('detailsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('detailsAlert');
+    clearAlert(alertBox);
+
+    const body = {
+        fullName: document.getElementById('fullName').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+    };
+
+    try {
+        const updated = await apiRequest('/profile/me', { method: 'PUT', body });
+        showAlert(alertBox, 'Profile updated.', 'success');
+        me.fullName = updated.fullName;
+        renderSidebar(document.getElementById('sidebar'), me, 'profile');
+        renderTopbar(me);
+    } catch (err) { showAlert(alertBox, err.message); }
+});
+
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('passwordAlert');
+    clearAlert(alertBox);
+
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+
+    try {
+        await apiRequest('/profile/change-password', { method: 'POST', body: { currentPassword, newPassword } });
+        showAlert(alertBox, 'Password updated successfully.', 'success');
+        document.getElementById('passwordForm').reset();
+    } catch (err) { showAlert(alertBox, err.message); }
+});
+</script>
+</body>
+</html>
